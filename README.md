@@ -1,4 +1,5 @@
-<h1>Subdomains Extension</h1>
+# Subdomains Extension - <small>[LNbits](https://github.com/lnbits/lnbits) extension</small>
+<small>For more about LNBits extension check [this tutorial](https://github.com/lnbits/lnbits/wiki/LNbits-Extensions)</small>
 
 So the goal of the extension is to allow the owner of a domain to sell subdomains to anyone who is willing to pay some money for it.
 
