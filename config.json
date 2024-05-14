@@ -3,5 +3,5 @@
   "short_description": "Sell subdomains of your domain",
   "tile": "/subdomains/static/image/subdomains.png",
   "contributors": ["grmkris"],
-  "min_lnbits_version": "0.11.0"
+  "min_lnbits_version": "0.12.5"
 }
