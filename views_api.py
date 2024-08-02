@@ -1,14 +1,13 @@
 from http import HTTPStatus
 
-from fastapi import Depends, Query
+from fastapi import APIRouter, Depends, Query
+from lnbits.core.crud import get_user
+from lnbits.core.models import WalletTypeInfo
+from lnbits.core.services import check_transaction_status, create_invoice
+from lnbits.decorators import get_key_type
 from loguru import logger
 from starlette.exceptions import HTTPException
 
-from lnbits.core.crud import get_user
-from lnbits.core.services import check_transaction_status, create_invoice
-from lnbits.decorators import WalletTypeInfo, get_key_type
-
-from . import subdomains_ext
 from .cloudflare import cloudflare_create_subdomain, cloudflare_deletesubdomain
 from .crud import (
     create_domain,
@@ -18,16 +17,16 @@ from .crud import (
     get_domain,
     get_domains,
     get_subdomain,
-    get_subdomainBySubdomain,
+    get_subdomain_by_subdomain,
     get_subdomains,
     update_domain,
 )
 from .models import CreateDomain, CreateSubdomain
 
-# domainS
+subdomains_api_router: APIRouter = APIRouter()
 
 
-@subdomains_ext.get("/api/v1/domains")
+@subdomains_api_router.get("/api/v1/domains")
 async def api_domains(
     g: WalletTypeInfo = Depends(get_key_type),
     all_wallets: bool = Query(False),
@@ -42,8 +41,8 @@ async def api_domains(
     return [domain.dict() for domain in await get_domains(wallet_ids)]
 
 
-@subdomains_ext.post("/api/v1/domains")
-@subdomains_ext.put("/api/v1/domains/{domain_id}")
+@subdomains_api_router.post("/api/v1/domains")
+@subdomains_api_router.put("/api/v1/domains/{domain_id}")
 async def api_domain_create(
     data: CreateDomain,
     domain_id=None,
@@ -67,7 +66,7 @@ async def api_domain_create(
     return domain.dict()
 
 
-@subdomains_ext.delete("/api/v1/domains/{domain_id}")
+@subdomains_api_router.delete("/api/v1/domains/{domain_id}")
 async def api_domain_delete(domain_id, g: WalletTypeInfo = Depends(get_key_type)):
     domain = await get_domain(domain_id)
 
@@ -85,7 +84,7 @@ async def api_domain_delete(domain_id, g: WalletTypeInfo = Depends(get_key_type)
 #########subdomains##########
 
 
-@subdomains_ext.get("/api/v1/subdomains")
+@subdomains_api_router.get("/api/v1/subdomains")
 async def api_subdomains(
     all_wallets: bool = Query(False), g: WalletTypeInfo = Depends(get_key_type)
 ):
@@ -99,7 +98,7 @@ async def api_subdomains(
     return [domain.dict() for domain in await get_subdomains(wallet_ids)]
 
 
-@subdomains_ext.post("/api/v1/subdomains/{domain_id}")
+@subdomains_api_router.post("/api/v1/subdomains/{domain_id}")
 async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
     domain = await get_domain(domain_id)
 
@@ -116,7 +115,7 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
         )
 
     ## If domain already exist in our database reject it
-    if await get_subdomainBySubdomain(data.subdomain) is not None:
+    if await get_subdomain_by_subdomain(data.subdomain) is not None:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail=f"{data.subdomain}.{domain.domain} domain already taken.",
@@ -138,7 +137,7 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail="Problem with cloudflare.",
-        )
+        ) from exc
 
     ## ALL OK - create an invoice and return it to the user
     sats = data.sats
@@ -147,11 +146,16 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
         payment_hash, payment_request = await create_invoice(
             wallet_id=domain.wallet,
             amount=sats,
-            memo=f"subdomain {data.subdomain}.{domain.domain} for {sats} sats for {data.duration} days",
+            memo=f"""
+            subdomain {data.subdomain}.{domain.domain}
+            for {sats} sats for {data.duration} days
+            """,
             extra={"tag": "lnsubdomain"},
         )
-    except Exception as e:
-        raise HTTPException(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(exc)
+        ) from exc
 
     subdomain = await create_subdomain(
         payment_hash=payment_hash, wallet=domain.wallet, data=data
@@ -165,7 +169,7 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
     return {"payment_hash": payment_hash, "payment_request": payment_request}
 
 
-@subdomains_ext.get("/api/v1/subdomains/{payment_hash}")
+@subdomains_api_router.get("/api/v1/subdomains/{payment_hash}")
 async def api_subdomain_send_subdomain(payment_hash):
     subdomain = await get_subdomain(payment_hash)
     assert subdomain
@@ -181,7 +185,7 @@ async def api_subdomain_send_subdomain(payment_hash):
     return {"paid": False}
 
 
-@subdomains_ext.delete("/api/v1/subdomains/{subdomain_id}")
+@subdomains_api_router.delete("/api/v1/subdomains/{subdomain_id}")
 async def api_subdomain_delete(subdomain_id, g: WalletTypeInfo = Depends(get_key_type)):
     subdomain = await get_subdomain(subdomain_id)
 

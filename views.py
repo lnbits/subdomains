@@ -1,20 +1,24 @@
 from http import HTTPStatus
 
-from fastapi import Depends, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.templating import Jinja2Templates
+from lnbits.core.models import User
+from lnbits.decorators import check_user_exists
+from lnbits.helpers import template_renderer
 from starlette.exceptions import HTTPException
 from starlette.responses import HTMLResponse
 
-from lnbits.core.models import User
-from lnbits.decorators import check_user_exists
-
-from . import subdomains_ext, subdomains_renderer
 from .crud import get_domain
 
 templates = Jinja2Templates(directory="templates")
+subdomains_generic_router = APIRouter()
 
 
-@subdomains_ext.get("/", response_class=HTMLResponse)
+def subdomains_renderer():
+    return template_renderer(["subdomains/templates"])
+
+
+@subdomains_generic_router.get("/", response_class=HTMLResponse)
 async def index(
     request: Request, user: User = Depends(check_user_exists)  # type:ignore
 ):
@@ -23,7 +27,7 @@ async def index(
     )
 
 
-@subdomains_ext.get("/{domain_id}")
+@subdomains_generic_router.get("/{domain_id}")
 async def display(request: Request, domain_id):
     domain = await get_domain(domain_id)
     if not domain:

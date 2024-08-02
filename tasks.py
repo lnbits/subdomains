@@ -1,11 +1,10 @@
 import asyncio
 
 import httpx
-from loguru import logger
-
 from lnbits.core.models import Payment
 from lnbits.helpers import get_current_extension_name
 from lnbits.tasks import register_invoice_listener
+from loguru import logger
 
 from .cloudflare import cloudflare_create_subdomain
 from .crud import get_domain, set_subdomain_paid
