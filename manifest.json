@@ -1,9 +1,9 @@
 {
-    "repos": [
-        {
-            "id": "subdomains",
-            "organisation": "lnbits",
-            "repository": "subdomains"
-        }
-    ]
+  "repos": [
+    {
+      "id": "subdomains",
+      "organisation": "lnbits",
+      "repository": "subdomains"
+    }
+  ]
 }
