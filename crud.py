@@ -1,15 +1,18 @@
-from typing import List, Optional, Union
+from typing import Optional, Union
 
+from lnbits.db import Database
 from lnbits.helpers import urlsafe_short_hash
 
-from . import db
 from .models import CreateDomain, CreateSubdomain, Domains, Subdomains
+
+db = Database("ext_subdomains")
 
 
 async def create_subdomain(payment_hash, wallet, data: CreateSubdomain) -> Subdomains:
     await db.execute(
         """
-        INSERT INTO subdomains.subdomain (id, domain, email, subdomain, ip, wallet, sats, duration, paid, record_type)
+        INSERT INTO subdomains.subdomain
+        (id, domain, email, subdomain, ip, wallet, sats, duration, paid, record_type)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
@@ -33,7 +36,10 @@ async def create_subdomain(payment_hash, wallet, data: CreateSubdomain) -> Subdo
 
 async def set_subdomain_paid(payment_hash: str) -> Subdomains:
     row = await db.fetchone(
-        "SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.id = ?",
+        """
+        SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
+        INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.id = ?
+        """,
         (payment_hash,),
     )
     if row[8] is False:
@@ -66,27 +72,36 @@ async def set_subdomain_paid(payment_hash: str) -> Subdomains:
 
 async def get_subdomain(subdomain_id: str) -> Optional[Subdomains]:
     row = await db.fetchone(
-        "SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.id = ?",
+        """
+        SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
+        INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.id = ?
+    """,
         (subdomain_id,),
     )
     return Subdomains(**row) if row else None
 
 
-async def get_subdomainBySubdomain(subdomain: str) -> Optional[Subdomains]:
+async def get_subdomain_by_subdomain(subdomain: str) -> Optional[Subdomains]:
     row = await db.fetchone(
-        "SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.subdomain = ?",
+        """
+        SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
+        INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.subdomain = ?
+        """,
         (subdomain,),
     )
     return Subdomains(**row) if row else None
 
 
-async def get_subdomains(wallet_ids: Union[str, List[str]]) -> List[Subdomains]:
+async def get_subdomains(wallet_ids: Union[str, list[str]]) -> list[Subdomains]:
     if isinstance(wallet_ids, str):
         wallet_ids = [wallet_ids]
 
     q = ",".join(["?"] * len(wallet_ids))
     rows = await db.fetchall(
-        f"SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.wallet IN ({q})",
+        f"""
+    SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
+    INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.wallet IN ({q})
+    """,
         (*wallet_ids,),
     )
 
@@ -104,7 +119,11 @@ async def create_domain(data: CreateDomain) -> Domains:
     domain_id = urlsafe_short_hash()
     await db.execute(
         """
-        INSERT INTO subdomains.domain (id, wallet, domain, webhook, cf_token, cf_zone_id, description, cost, amountmade, allowed_record_types)
+        INSERT INTO subdomains.domain
+        (
+            id, wallet, domain, webhook, cf_token, cf_zone_id,
+            description, cost, amountmade, allowed_record_types
+        )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
@@ -145,7 +164,7 @@ async def get_domain(domain_id: str) -> Optional[Domains]:
     return Domains(**row) if row else None
 
 
-async def get_domains(wallet_ids: Union[str, List[str]]) -> List[Domains]:
+async def get_domains(wallet_ids: Union[str, list[str]]) -> list[Domains]:
     if isinstance(wallet_ids, str):
         wallet_ids = [wallet_ids]
 
