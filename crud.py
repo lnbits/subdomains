@@ -1,7 +1,7 @@
 from typing import Optional, Union
 
 from lnbits.db import Database
-from lnbits.helpers import insert_query, update_query, urlsafe_short_hash
+from lnbits.helpers import urlsafe_short_hash
 
 from .models import CreateDomain, CreateSubdomain, Domain, Subdomain
 
@@ -14,80 +14,60 @@ async def create_subdomain(payment_hash, wallet, data: CreateSubdomain) -> Subdo
         wallet=wallet,
         **data.dict(),
     )
-    await db.execute(
-        insert_query("subdomains.subdomain", subdomain),
-        subdomain.dict(),
-    )
+    await db.insert("subdomains.subdomain", subdomain)
     return subdomain
 
 
 async def set_subdomain_paid(payment_hash: str) -> Subdomain:
-    row = await db.fetchone(
-        """
-        SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
-        INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.id = :id
-        """,
+    subdomain = await db.fetchone(
+        "SELECT * FROM subdomains.subdomain WHERE id = :id",
         {"id": payment_hash},
+        Subdomain,
     )
-    if row["paid"] is False:
-        await db.execute(
-            "UPDATE subdomains.subdomain SET paid = true WHERE id = :id",
-            {"id": payment_hash},
-        )
+    if subdomain.paid is False:
+        subdomain.paid = True
+        await db.update("subdomains.subdomain", subdomain)
+        domain = await get_domain(subdomain.domain)
+        assert domain, "Couldn't get domain from paid subdomain"
+        domain.amountmade += subdomain.sats
+        await db.update("subdomains.domain", domain)
 
-        domaindata = await get_domain(row["id"])
-        assert domaindata, "Couldn't get domain from paid subdomain"
-
-        amount = domaindata.amountmade + row["sats"]
-        await db.execute(
-            """
-            UPDATE subdomains.domain
-            SET amountmade = :amount
-            WHERE id = :id
-            """,
-            {"amount": amount, "id": row["id"]},
-        )
-
-    new_subdomain = await get_subdomain(payment_hash)
-    assert new_subdomain, "Newly paid subdomain couldn't be retrieved"
-    return new_subdomain
+    return subdomain
 
 
 async def get_subdomain(subdomain_id: str) -> Optional[Subdomain]:
-    row = await db.fetchone(
+    return await db.fetchone(
         """
         SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
         INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.id = :id
         """,
         {"id": subdomain_id},
+        Subdomain,
     )
-    return Subdomain(**row) if row else None
 
 
 async def get_subdomain_by_subdomain(subdomain: str) -> Optional[Subdomain]:
-    row = await db.fetchone(
+    return await db.fetchone(
         """
         SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
         INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.subdomain = :id
         """,
         {"id": subdomain},
+        Subdomain,
     )
-    return Subdomain(**row) if row else None
 
 
 async def get_subdomains(wallet_ids: Union[str, list[str]]) -> list[Subdomain]:
     if isinstance(wallet_ids, str):
         wallet_ids = [wallet_ids]
-
     q = ",".join([f"'{w}'" for w in wallet_ids])
-    rows = await db.fetchall(
+    return await db.fetchall(
         f"""
         SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
         INNER JOIN subdomains.domain d ON (s.domain = d.id) WHERE s.wallet IN ({q})
-        """
+        """,
+        model=Subdomain,
     )
-
-    return [Subdomain(**row) for row in rows]
 
 
 async def delete_subdomain(subdomain_id: str) -> None:
@@ -102,36 +82,30 @@ async def create_domain(data: CreateDomain) -> Domain:
         id=urlsafe_short_hash(),
         **data.dict(),
     )
-    await db.execute(
-        insert_query("subdomains.domain", domain),
-        domain.dict(),
-    )
+    await db.insert("subdomains.domain", domain)
     return domain
 
 
 async def update_domain(domain: Domain) -> Domain:
-    await db.execute(
-        update_query("subdomains.domain", domain),
-        domain.dict(),
-    )
+    await db.update("subdomains.domain", domain)
     return domain
 
 
 async def get_domain(domain_id: str) -> Optional[Domain]:
-    row = await db.fetchone(
-        "SELECT * FROM subdomains.domain WHERE id = :id", {"id": domain_id}
+    return await db.fetchone(
+        "SELECT * FROM subdomains.domain WHERE id = :id",
+        {"id": domain_id},
+        Domain,
     )
-    return Domain(**row) if row else None
 
 
 async def get_domains(wallet_ids: Union[str, list[str]]) -> list[Domain]:
     if isinstance(wallet_ids, str):
         wallet_ids = [wallet_ids]
-
     q = ",".join([f"'{w}'" for w in wallet_ids])
-    rows = await db.fetchall(f"SELECT * FROM subdomains.domain WHERE wallet IN ({q})")
-
-    return [Domain(**row) for row in rows]
+    return await db.fetchall(
+        f"SELECT * FROM subdomains.domain WHERE wallet IN ({q})", model=Domain
+    )
 
 
 async def delete_domain(domain_id: str) -> None:

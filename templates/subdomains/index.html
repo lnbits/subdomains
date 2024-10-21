@@ -26,18 +26,20 @@
         <q-table
           dense
           flat
-          :data="domains"
+          :rows="domains"
           row-key="id"
           :columns="domainsTable.columns"
-          :pagination.sync="domainsTable.pagination"
+          v-model:pagination="domainsTable.pagination"
         >
-          {% raw %}
           <template v-slot:header="props">
             <q-tr :props="props">
               <q-th auto-width></q-th>
-              <q-th v-for="col in props.cols" :key="col.name" :props="props">
-                {{ col.label }}
-              </q-th>
+              <q-th
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                v-text="col.label"
+              ></q-th>
               <q-th auto-width></q-th>
             </q-tr>
           </template>
@@ -55,9 +57,12 @@
                   target="_blank"
                 ></q-btn>
               </q-td>
-              <q-td v-for="col in props.cols" :key="col.name" :props="props">
-                {{ col.value }}
-              </q-td>
+              <q-td
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                v-text="col.value"
+              ></q-td>
               <q-td auto-width>
                 <q-btn
                   flat
@@ -81,7 +86,6 @@
               </q-td>
             </q-tr>
           </template>
-          {% endraw %}
         </q-table>
       </q-card-section>
     </q-card>
@@ -101,18 +105,20 @@
         <q-table
           dense
           flat
-          :data="subdomains"
+          :rows="subdomains"
           row-key="id"
           :columns="subdomainsTable.columns"
-          :pagination.sync="subdomainsTable.pagination"
+          v-model:pagination="subdomainsTable.pagination"
         >
-          {% raw %}
           <template v-slot:header="props">
             <q-tr :props="props">
               <q-th auto-width></q-th>
-              <q-th v-for="col in props.cols" :key="col.name" :props="props">
-                {{ col.label }}
-              </q-th>
+              <q-th
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                v-text="col.label"
+              ></q-th>
             </q-tr>
           </template>
           <template v-slot:body="props">
@@ -129,9 +135,12 @@
                 ></q-btn>
               </q-td>
 
-              <q-td v-for="col in props.cols" :key="col.name" :props="props">
-                {{ col.value }}
-              </q-td>
+              <q-td
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                v-text="col.value"
+              ></q-td>
 
               <q-td auto-width>
                 <q-btn
@@ -145,7 +154,6 @@
               </q-td>
             </q-tr>
           </template>
-          {% endraw %}
         </q-table>
       </q-card-section>
     </q-card>
@@ -258,20 +266,19 @@
 
 {% endblock %} {% block scripts %} {{ window_vars(user) }}
 <script>
-  var mapLNDomain = function (obj) {
-    obj.date = Quasar.utils.date.formatDate(
+  const mapLNDomain = obj => {
+    obj.date = Quasar.date.formatDate(
       new Date(obj.time * 1000),
       'YYYY-MM-DD HH:mm'
     )
     obj.displayUrl = ['/subdomains/', obj.id].join('')
-    console.log(obj)
     return obj
   }
 
-  new Vue({
+  window.app = Vue.createApp({
     el: '#vue',
     mixins: [windowMixin],
-    data: function () {
+    data() {
       return {
         domains: [],
         subdomains: [],
@@ -392,36 +399,33 @@
       }
     },
     methods: {
-      getSubdomains: function () {
-        var self = this
-
+      getSubdomains() {
         LNbits.api
           .request(
             'GET',
             '/subdomains/api/v1/subdomains?all_wallets=true',
             this.g.user.wallets[0].inkey
           )
-          .then(function (response) {
-            self.subdomains = response.data.map(function (obj) {
+          .then(response => {
+            this.subdomains = response.data.map(function (obj) {
               return mapLNDomain(obj)
             })
           })
       },
-      deleteSubdomain: function (subdomainId) {
-        var self = this
-        var subdomains = _.findWhere(this.subdomains, {id: subdomainId})
+      deleteSubdomain(subdomainId) {
+        const subdomains = _.findWhere(this.subdomains, {id: subdomainId})
 
         LNbits.utils
           .confirmDialog('Are you sure you want to delete this subdomain')
-          .onOk(function () {
+          .onOk(() => {
             LNbits.api
               .request(
                 'DELETE',
                 '/subdomains/api/v1/subdomains/' + subdomainId,
-                _.findWhere(self.g.user.wallets, {id: subdomains.wallet}).inkey
+                _.findWhere(this.g.user.wallets, {id: subdomains.wallet}).inkey
               )
-              .then(function (response) {
-                self.subdomains = _.reject(self.subdomains, function (obj) {
+              .then(response => {
+                this.subdomains = _.reject(this.subdomains, function (obj) {
                   return obj.id == subdomainId
                 })
               })
@@ -430,35 +434,32 @@
               })
           })
       },
-      exportSubdomainsCSV: function () {
+      exportSubdomainsCSV() {
         LNbits.utils.exportCSV(this.subdomainsTable.columns, this.subdomains)
       },
 
-      getDomains: function () {
-        var self = this
-
+      getDomains() {
         LNbits.api
           .request(
             'GET',
             '/subdomains/api/v1/domains?all_wallets=true',
             this.g.user.wallets[0].inkey
           )
-          .then(function (response) {
-            self.domains = response.data.map(function (obj) {
+          .then(response => {
+            this.domains = response.data.map(function (obj) {
               return mapLNDomain(obj)
             })
           })
       },
-      sendFormData: function () {
-        var wallet = _.findWhere(this.g.user.wallets, {
+      sendFormData() {
+        const wallet = _.findWhere(this.g.user.wallets, {
           id: this.domainDialog.data.wallet
         })
-        var data = this.domainDialog.data
+        const data = this.domainDialog.data
         data.allowed_record_types =
           typeof data.allowed_record_types === 'string'
             ? data.allowed_record_types
             : data.allowed_record_types.join(', ')
-        console.log(this.domainDialog)
         if (data.id) {
           this.updateDomain(wallet, data)
         } else {
@@ -466,32 +467,26 @@
         }
       },
 
-      createDomain: function (wallet, data) {
-        var self = this
-
+      createDomain(wallet, data) {
         LNbits.api
           .request('POST', '/subdomains/api/v1/domains', wallet.inkey, data)
-          .then(function (response) {
-            self.domains.push(mapLNDomain(response.data))
-            self.domainDialog.show = false
-            self.domainDialog.data = {}
+          .then(response => {
+            this.domains.push(mapLNDomain(response.data))
+            this.domainDialog.show = false
+            this.domainDialog.data = {}
           })
           .catch(function (error) {
             LNbits.utils.notifyApiError(error)
           })
       },
-      updateDomainDialog: function (formId) {
-        var link = _.findWhere(this.domains, {id: formId})
-        console.log(link.id)
+      updateDomainDialog(formId) {
+        const link = _.findWhere(this.domains, {id: formId})
         this.domainDialog.data = _.clone(link)
         this.domainDialog.data.allowed_record_types =
           link.allowed_record_types.split(', ')
         this.domainDialog.show = true
       },
-      updateDomain: function (wallet, data) {
-        var self = this
-        console.log(data)
-
+      updateDomain(wallet, data) {
         LNbits.api
           .request(
             'PUT',
@@ -499,46 +494,43 @@
             wallet.inkey,
             data
           )
-          .then(function (response) {
-            self.domains = _.reject(self.domains, function (obj) {
+          .then(response => {
+            this.domains = _.reject(this.domains, function (obj) {
               return obj.id == data.id
             })
-            self.domains.push(mapLNDomain(response.data))
-            self.domainDialog.show = false
-            self.domainDialog.data = {}
+            this.domains.push(mapLNDomain(response.data))
+            this.domainDialog.show = false
+            this.domainDialog.data = {}
           })
           .catch(function (error) {
             LNbits.utils.notifyApiError(error)
           })
       },
-      deleteDomain: function (domainId) {
-        var self = this
-        var domains = _.findWhere(this.domains, {id: domainId})
+      deleteDomain(domainId) {
+        const domains = _.findWhere(this.domains, {id: domainId})
 
         LNbits.utils
           .confirmDialog('Are you sure you want to delete this domain link?')
-          .onOk(function () {
+          .onOk(() => {
             LNbits.api
               .request(
                 'DELETE',
                 '/subdomains/api/v1/domains/' + domainId,
-                _.findWhere(self.g.user.wallets, {id: domains.wallet}).inkey
+                _.findWhere(this.g.user.wallets, {id: domains.wallet}).inkey
               )
-              .then(function (response) {
-                self.domains = _.reject(self.domains, function (obj) {
+              .then(response => {
+                this.domains = _.reject(this.domains, function (obj) {
                   return obj.id == domainId
                 })
               })
-              .catch(function (error) {
-                LNbits.utils.notifyApiError(error)
-              })
+              .catch(LNbits.utils.notifyApiError)
           })
       },
-      exportDomainsCSV: function () {
+      exportDomainsCSV() {
         LNbits.utils.exportCSV(this.domainsTable.columns, this.domains)
       }
     },
-    created: function () {
+    created() {
       if (this.g.user.wallets.length) {
         this.getDomains()
         this.getSubdomains()
