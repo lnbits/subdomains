@@ -422,7 +422,8 @@
               .request(
                 'DELETE',
                 '/subdomains/api/v1/subdomains/' + subdomainId,
-                _.findWhere(this.g.user.wallets, {id: subdomains.wallet}).inkey
+                _.findWhere(this.g.user.wallets, {id: subdomains.wallet})
+                  .adminkey
               )
               .then(response => {
                 this.subdomains = _.reject(this.subdomains, function (obj) {
@@ -446,9 +447,7 @@
             this.g.user.wallets[0].inkey
           )
           .then(response => {
-            this.domains = response.data.map(function (obj) {
-              return mapLNDomain(obj)
-            })
+            this.domains = response.data.map(mapLNDomain)
           })
       },
       sendFormData() {
@@ -469,7 +468,7 @@
 
       createDomain(wallet, data) {
         LNbits.api
-          .request('POST', '/subdomains/api/v1/domains', wallet.inkey, data)
+          .request('POST', '/subdomains/api/v1/domains', wallet.adminkey, data)
           .then(response => {
             this.domains.push(mapLNDomain(response.data))
             this.domainDialog.show = false
@@ -491,7 +490,7 @@
           .request(
             'PUT',
             '/subdomains/api/v1/domains/' + data.id,
-            wallet.inkey,
+            wallet.adminkey,
             data
           )
           .then(response => {
@@ -516,7 +515,7 @@
               .request(
                 'DELETE',
                 '/subdomains/api/v1/domains/' + domainId,
-                _.findWhere(this.g.user.wallets, {id: domains.wallet}).inkey
+                _.findWhere(this.g.user.wallets, {id: domains.wallet}).adminkey
               )
               .then(response => {
                 this.domains = _.reject(this.domains, function (obj) {
