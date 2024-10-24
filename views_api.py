@@ -1,12 +1,13 @@
 from http import HTTPStatus
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.exceptions import HTTPException
 from lnbits.core.crud import get_user
 from lnbits.core.models import WalletTypeInfo
 from lnbits.core.services import check_transaction_status, create_invoice
-from lnbits.decorators import get_key_type
+from lnbits.decorators import require_admin_key, require_invoice_key
 from loguru import logger
-from starlette.exceptions import HTTPException
 
 from .cloudflare import cloudflare_create_subdomain, cloudflare_deletesubdomain
 from .crud import (
@@ -21,33 +22,33 @@ from .crud import (
     get_subdomains,
     update_domain,
 )
-from .models import CreateDomain, CreateSubdomain
+from .models import CreateDomain, CreateSubdomain, Domain, Subdomain
 
 subdomains_api_router: APIRouter = APIRouter()
 
 
 @subdomains_api_router.get("/api/v1/domains")
 async def api_domains(
-    g: WalletTypeInfo = Depends(get_key_type),
+    key_info: WalletTypeInfo = Depends(require_admin_key),
     all_wallets: bool = Query(False),
-):
-    wallet_ids = [g.wallet.id]
+) -> list[Domain]:
+    wallet_ids = [key_info.wallet.id]
 
     if all_wallets:
-        user = await get_user(g.wallet.user)
-        if user is not None:
+        user = await get_user(key_info.wallet.user)
+        if user:
             wallet_ids = user.wallet_ids
 
-    return [domain.dict() for domain in await get_domains(wallet_ids)]
+    return await get_domains(wallet_ids)
 
 
 @subdomains_api_router.post("/api/v1/domains")
 @subdomains_api_router.put("/api/v1/domains/{domain_id}")
 async def api_domain_create(
     data: CreateDomain,
-    domain_id=None,
-    g: WalletTypeInfo = Depends(get_key_type),
-):
+    domain_id: Optional[str] = None,
+    key_info: WalletTypeInfo = Depends(require_admin_key),
+) -> Domain:
     if domain_id:
         domain = await get_domain(domain_id)
 
@@ -55,47 +56,49 @@ async def api_domain_create(
             raise HTTPException(
                 status_code=HTTPStatus.NOT_FOUND, detail="Domain does not exist."
             )
-        if domain.wallet != g.wallet.id:
+        if domain.wallet != key_info.wallet.id:
             raise HTTPException(
                 status_code=HTTPStatus.FORBIDDEN, detail="Not your domain."
             )
 
-        domain = await update_domain(domain_id, **data.dict())
+        for k, v in data.dict().items():
+            setattr(domain, k, v)
+
+        domain = await update_domain(domain)
     else:
-        domain = await create_domain(data=data)
-    return domain.dict()
+        domain = await create_domain(data)
+    return domain
 
 
 @subdomains_api_router.delete("/api/v1/domains/{domain_id}")
-async def api_domain_delete(domain_id, g: WalletTypeInfo = Depends(get_key_type)):
+async def api_domain_delete(
+    domain_id: str, key_info: WalletTypeInfo = Depends(require_admin_key)
+):
     domain = await get_domain(domain_id)
 
     if not domain:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Domain does not exist."
         )
-    if domain.wallet != g.wallet.id:
+    if domain.wallet != key_info.wallet.id:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not your domain.")
 
     await delete_domain(domain_id)
-    return "", HTTPStatus.NO_CONTENT
-
-
-#########subdomains##########
 
 
 @subdomains_api_router.get("/api/v1/subdomains")
 async def api_subdomains(
-    all_wallets: bool = Query(False), g: WalletTypeInfo = Depends(get_key_type)
-):
-    wallet_ids = [g.wallet.id]
+    all_wallets: bool = Query(False),
+    key_info: WalletTypeInfo = Depends(require_invoice_key),
+) -> list[Subdomain]:
+    wallet_ids = [key_info.wallet.id]
 
     if all_wallets:
-        user = await get_user(g.wallet.user)
+        user = await get_user(key_info.wallet.user)
         if user is not None:
             wallet_ids = user.wallet_ids
 
-    return [domain.dict() for domain in await get_subdomains(wallet_ids)]
+    return await get_subdomains(wallet_ids)
 
 
 @subdomains_api_router.post("/api/v1/subdomains/{domain_id}")
@@ -186,7 +189,9 @@ async def api_subdomain_send_subdomain(payment_hash):
 
 
 @subdomains_api_router.delete("/api/v1/subdomains/{subdomain_id}")
-async def api_subdomain_delete(subdomain_id, g: WalletTypeInfo = Depends(get_key_type)):
+async def api_subdomain_delete(
+    subdomain_id: str, key_info: WalletTypeInfo = Depends(require_admin_key)
+) -> None:
     subdomain = await get_subdomain(subdomain_id)
 
     if not subdomain:
@@ -194,10 +199,9 @@ async def api_subdomain_delete(subdomain_id, g: WalletTypeInfo = Depends(get_key
             status_code=HTTPStatus.NOT_FOUND, detail="LNsubdomain does not exist."
         )
 
-    if subdomain.wallet != g.wallet.id:
+    if subdomain.wallet != key_info.wallet.id:
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN, detail="Not your subdomain."
         )
 
     await delete_subdomain(subdomain_id)
-    return "", HTTPStatus.NO_CONTENT
