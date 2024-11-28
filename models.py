@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import Query
 from pydantic import BaseModel
 
@@ -23,7 +25,7 @@ class CreateSubdomain(BaseModel):
     record_type: str = Query(...)
 
 
-class Domains(BaseModel):
+class Domain(BaseModel):
     id: str
     wallet: str
     domain: str
@@ -32,12 +34,12 @@ class Domains(BaseModel):
     webhook: str
     description: str
     cost: int
-    amountmade: int
-    time: int
     allowed_record_types: str
+    amountmade: int = 0
+    time: datetime = datetime.now(timezone.utc)
 
 
-class Subdomains(BaseModel):
+class Subdomain(BaseModel):
     id: str
     wallet: str
     domain: str
@@ -47,6 +49,6 @@ class Subdomains(BaseModel):
     ip: str
     sats: int
     duration: int
-    paid: bool
-    time: int
     record_type: str
+    paid: bool = False
+    time: datetime = datetime.now(timezone.utc)

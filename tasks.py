@@ -21,17 +21,15 @@ async def wait_for_paid_invoices():
 
 async def on_invoice_paid(payment: Payment) -> None:
     if payment.extra.get("tag") != "lnsubdomain":
-        # not an lnsubdomain invoice
         return
-
-    await payment.set_pending(False)
     subdomain = await set_subdomain_paid(payment_hash=payment.payment_hash)
     domain = await get_domain(subdomain.domain)
+    assert domain, "domain for subdomain does not exist"
 
     ### Create subdomain
     try:
         cf_response = await cloudflare_create_subdomain(
-            domain=domain,  # type: ignore
+            domain=domain,
             subdomain=subdomain.subdomain,
             record_type=subdomain.record_type,
             ip=subdomain.ip,
@@ -57,8 +55,13 @@ async def on_invoice_paid(payment: Payment) -> None:
                         "duration": str(subdomain.duration) + " days",
                         "cf_response": cf_response,
                     },
-                    timeout=40,
+                    timeout=6,
                 )
-                assert r
-            except AssertionError:
-                pass
+                r.raise_for_status()
+            except Exception as exc:
+                logger.error(
+                    f"""
+                    failed to send webhook for subdomain {subdomain.subdomain},
+                    with message {exc!s}
+                    """
+                )

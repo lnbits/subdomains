@@ -1,7 +1,7 @@
 async def m001_initial(db):
 
     await db.execute(
-        """
+        f"""
         CREATE TABLE subdomains.domain (
             id TEXT PRIMARY KEY,
             wallet TEXT NOT NULL,
@@ -13,15 +13,13 @@ async def m001_initial(db):
             cost INTEGER NOT NULL,
             amountmade INTEGER NOT NULL,
             allowed_record_types TEXT NOT NULL,
-            time TIMESTAMP NOT NULL DEFAULT """
-        + db.timestamp_now
-        + """
+            time TIMESTAMP NOT NULL DEFAULT {db.timestamp_now}
         );
-    """
+        """
     )
 
     await db.execute(
-        """
+        f"""
         CREATE TABLE subdomains.subdomain (
             id TEXT PRIMARY KEY,
             domain TEXT NOT NULL,
@@ -33,9 +31,7 @@ async def m001_initial(db):
             duration INTEGER NOT NULL,
             paid BOOLEAN NOT NULL,
             record_type TEXT NOT NULL,
-            time TIMESTAMP NOT NULL DEFAULT """
-        + db.timestamp_now
-        + """
+            time TIMESTAMP NOT NULL DEFAULT {db.timestamp_now}
         );
-    """
+        """
     )
