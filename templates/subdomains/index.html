@@ -444,7 +444,7 @@
           .request(
             'GET',
             '/subdomains/api/v1/domains?all_wallets=true',
-            this.g.user.wallets[0].inkey
+            this.g.user.wallets[0].adminkey
           )
           .then(response => {
             this.domains = response.data.map(mapLNDomain)
