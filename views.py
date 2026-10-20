@@ -18,7 +18,7 @@ def subdomains_renderer():
 @subdomains_generic_router.get("/", response_class=HTMLResponse)
 async def index(request: Request, user: User = Depends(check_user_exists)):
     return subdomains_renderer().TemplateResponse(
-        "subdomains/index.html", {"request": request, "user": user.json()}
+        "subdomains/index.html", {"request": request, "user": user.model_dump_json()}
     )
 
 

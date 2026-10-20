@@ -12,7 +12,7 @@ async def create_subdomain(payment_hash, wallet, data: CreateSubdomain) -> Subdo
     subdomain = Subdomain(
         id=payment_hash,
         wallet=wallet,
-        **data.dict(),
+        **data.model_dump(),
     )
     await db.insert("subdomains.subdomain", subdomain)
     return subdomain
@@ -80,7 +80,7 @@ async def delete_subdomain(subdomain_id: str) -> None:
 async def create_domain(data: CreateDomain) -> Domain:
     domain = Domain(
         id=urlsafe_short_hash(),
-        **data.dict(),
+        **data.model_dump(),
     )
     await db.insert("subdomains.domain", domain)
     return domain

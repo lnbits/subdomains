@@ -1,8 +1,9 @@
 {
   "name": "Subdomains",
+  "version": "1.0.0",
   "short_description": "Sell subdomains of your domain",
   "tile": "/subdomains/static/image/subdomains.png",
-  "min_lnbits_version": "1.0.0",
+  "min_lnbits_version": "1.7.0",
   "contributors": [
     {
       "name": "grmkris",
