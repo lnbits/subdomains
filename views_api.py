@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
@@ -46,7 +45,7 @@ async def api_domains(
 @subdomains_api_router.put("/api/v1/domains/{domain_id}")
 async def api_domain_create(
     data: CreateDomain,
-    domain_id: Optional[str] = None,
+    domain_id: str | None = None,
     key_info: WalletTypeInfo = Depends(require_admin_key),
 ) -> Domain:
     if domain_id:

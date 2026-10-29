@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 from lnbits.db import Database
 from lnbits.helpers import urlsafe_short_hash
 
@@ -35,7 +33,7 @@ async def set_subdomain_paid(payment_hash: str) -> Subdomain:
     return subdomain
 
 
-async def get_subdomain(subdomain_id: str) -> Optional[Subdomain]:
+async def get_subdomain(subdomain_id: str) -> Subdomain | None:
     return await db.fetchone(
         """
         SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
@@ -46,7 +44,7 @@ async def get_subdomain(subdomain_id: str) -> Optional[Subdomain]:
     )
 
 
-async def get_subdomain_by_subdomain(subdomain: str) -> Optional[Subdomain]:
+async def get_subdomain_by_subdomain(subdomain: str) -> Subdomain | None:
     return await db.fetchone(
         """
         SELECT s.*, d.domain as domain_name FROM subdomains.subdomain s
@@ -57,7 +55,7 @@ async def get_subdomain_by_subdomain(subdomain: str) -> Optional[Subdomain]:
     )
 
 
-async def get_subdomains(wallet_ids: Union[str, list[str]]) -> list[Subdomain]:
+async def get_subdomains(wallet_ids: str | list[str]) -> list[Subdomain]:
     if isinstance(wallet_ids, str):
         wallet_ids = [wallet_ids]
     q = ",".join([f"'{w}'" for w in wallet_ids])
@@ -91,7 +89,7 @@ async def update_domain(domain: Domain) -> Domain:
     return domain
 
 
-async def get_domain(domain_id: str) -> Optional[Domain]:
+async def get_domain(domain_id: str) -> Domain | None:
     return await db.fetchone(
         "SELECT * FROM subdomains.domain WHERE id = :id",
         {"id": domain_id},
@@ -99,7 +97,7 @@ async def get_domain(domain_id: str) -> Optional[Domain]:
     )
 
 
-async def get_domains(wallet_ids: Union[str, list[str]]) -> list[Domain]:
+async def get_domains(wallet_ids: str | list[str]) -> list[Domain]:
     if isinstance(wallet_ids, str):
         wallet_ids = [wallet_ids]
     q = ",".join([f"'{w}'" for w in wallet_ids])
