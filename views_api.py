@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.exceptions import HTTPException
@@ -46,7 +45,7 @@ async def api_domains(
 @subdomains_api_router.put("/api/v1/domains/{domain_id}")
 async def api_domain_create(
     data: CreateDomain,
-    domain_id: Optional[str] = None,
+    domain_id: str | None = None,
     key_info: WalletTypeInfo = Depends(require_admin_key),
 ) -> Domain:
     if domain_id:
@@ -61,7 +60,7 @@ async def api_domain_create(
                 status_code=HTTPStatus.FORBIDDEN, detail="Not your domain."
             )
 
-        for k, v in data.dict().items():
+        for k, v in data.model_dump().items():
             setattr(domain, k, v)
 
         domain = await update_domain(domain)
