@@ -1,9 +1,9 @@
 import asyncio
 
-import httpx
 from lnbits.core.models import Payment
 from lnbits.helpers import get_current_extension_name
 from lnbits.tasks import register_invoice_listener
+from lnbits.utils.safe_http import SafeHttpClient
 from loguru import logger
 
 from .cloudflare import cloudflare_create_subdomain
@@ -41,7 +41,7 @@ async def on_invoice_paid(payment: Payment) -> None:
 
     ### Use webhook to notify about cloudflare registration
     if domain and domain.webhook:
-        async with httpx.AsyncClient() as client:
+        async with SafeHttpClient(read_body=False) as client:
             try:
                 r = await client.post(
                     domain.webhook,
@@ -59,9 +59,7 @@ async def on_invoice_paid(payment: Payment) -> None:
                 )
                 r.raise_for_status()
             except Exception as exc:
-                logger.error(
-                    f"""
+                logger.error(f"""
                     failed to send webhook for subdomain {subdomain.subdomain},
-                    with message {exc!s}
-                    """
-                )
+                    with error type {type(exc).__name__}
+                    """)
