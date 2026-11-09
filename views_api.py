@@ -145,7 +145,7 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
     sats = data.sats
 
     try:
-        payment_hash, payment_request = await create_invoice(
+        payment = await create_invoice(
             wallet_id=domain.wallet,
             amount=sats,
             memo=f"""
@@ -160,7 +160,10 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
         ) from exc
 
     subdomain = await create_subdomain(
-        payment_hash=payment_hash, wallet=domain.wallet, data=data
+        payment_hash=payment.payment_hash,
+        wallet=domain.wallet,
+        data=data,
+        domain_name=domain.domain,
     )
 
     if not subdomain:
@@ -168,7 +171,10 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
             status_code=HTTPStatus.NOT_FOUND, detail="LNsubdomain could not be fetched."
         )
 
-    return {"payment_hash": payment_hash, "payment_request": payment_request}
+    return {
+        "payment_hash": payment.payment_hash,
+        "payment_request": payment.bolt11,
+    }
 
 
 @subdomains_api_router.get("/api/v1/subdomains/{payment_hash}")

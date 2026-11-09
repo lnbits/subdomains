@@ -37,6 +37,7 @@ module = [
   "pyqrcode.*",
   "shortuuid.*",
   "httpx.*",
+  "pytest_asyncio.*",
 ]
 ignore_missing_imports = "True"
 

@@ -6,10 +6,13 @@ from .models import CreateDomain, CreateSubdomain, Domain, Subdomain
 db = Database("ext_subdomains")
 
 
-async def create_subdomain(payment_hash, wallet, data: CreateSubdomain) -> Subdomain:
+async def create_subdomain(
+    payment_hash: str, wallet: str, data: CreateSubdomain, domain_name: str
+) -> Subdomain:
     subdomain = Subdomain(
         id=payment_hash,
         wallet=wallet,
+        domain_name=domain_name,
         **data.model_dump(),
     )
     await db.insert("subdomains.subdomain", subdomain)
@@ -17,11 +20,8 @@ async def create_subdomain(payment_hash, wallet, data: CreateSubdomain) -> Subdo
 
 
 async def set_subdomain_paid(payment_hash: str) -> Subdomain:
-    subdomain = await db.fetchone(
-        "SELECT * FROM subdomains.subdomain WHERE id = :id",
-        {"id": payment_hash},
-        Subdomain,
-    )
+    subdomain = await get_subdomain(payment_hash)
+    assert subdomain, "Subdomain does not exist."
     if subdomain.paid is False:
         subdomain.paid = True
         await db.update("subdomains.subdomain", subdomain)

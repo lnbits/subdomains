@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateDomain(BaseModel):
@@ -43,7 +43,8 @@ class Subdomain(BaseModel):
     id: str
     wallet: str
     domain: str
-    domain_name: str
+    # Derived from the joined `subdomains.domain` row; never stored.
+    domain_name: str = Field(json_schema_extra={"no_database": True})
     subdomain: str
     email: str
     ip: str
