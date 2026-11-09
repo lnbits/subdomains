@@ -66,7 +66,9 @@ async def on_invoice_paid(payment: Payment) -> None:
                 )
                 r.raise_for_status()
             except Exception as exc:
-                logger.error(f"""
+                logger.error(
+                    f"""
                     failed to send webhook for subdomain {subdomain.subdomain},
                     with error type {type(exc).__name__}
-                    """)
+                    """
+                )

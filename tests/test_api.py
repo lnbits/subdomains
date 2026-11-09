@@ -33,7 +33,7 @@ async def test_create_invoice_and_settle_subdomain_end_to_end(
     )
 
     assert response.status_code == 200, response.text
-    invoice = response.json()
+    invoice: dict = response.json()
     assert invoice["payment_hash"]
     assert invoice["payment_request"]
 
