@@ -109,6 +109,12 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="LNsubdomain does not exist."
         )
+    # The domain from the path is authoritative, never the request body.
+    if data.domain != domain.id:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Requested subdomain does not belong to this domain.",
+        )
     ## If record_type is not one of the allowed ones reject the request
     if data.record_type not in domain.allowed_record_types:
         raise HTTPException(
@@ -145,7 +151,7 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
     sats = data.sats
 
     try:
-        payment_hash, payment_request = await create_invoice(
+        payment = await create_invoice(
             wallet_id=domain.wallet,
             amount=sats,
             memo=f"""
@@ -160,7 +166,10 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
         ) from exc
 
     subdomain = await create_subdomain(
-        payment_hash=payment_hash, wallet=domain.wallet, data=data
+        payment_hash=payment.payment_hash,
+        wallet=domain.wallet,
+        data=data,
+        domain=domain,
     )
 
     if not subdomain:
@@ -168,7 +177,10 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
             status_code=HTTPStatus.NOT_FOUND, detail="LNsubdomain could not be fetched."
         )
 
-    return {"payment_hash": payment_hash, "payment_request": payment_request}
+    return {
+        "payment_hash": payment.payment_hash,
+        "payment_request": payment.bolt11,
+    }
 
 
 @subdomains_api_router.get("/api/v1/subdomains/{payment_hash}")

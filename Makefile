@@ -33,6 +33,8 @@ checkeditorconfig:
 test:
 	PYTHONUNBUFFERED=1 \
 	DEBUG=true \
+	LNBITS_DATABASE_URL= \
+	LNBITS_DATA_FOLDER=$$(mktemp -d) \
 	uv run pytest
 install-pre-commit-hook:
 	@echo "Installing pre-commit hook to git"
