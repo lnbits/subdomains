@@ -109,6 +109,12 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="LNsubdomain does not exist."
         )
+    # The domain from the path is authoritative, never the request body.
+    if data.domain != domain.id:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Requested subdomain does not belong to this domain.",
+        )
     ## If record_type is not one of the allowed ones reject the request
     if data.record_type not in domain.allowed_record_types:
         raise HTTPException(
@@ -163,7 +169,7 @@ async def api_subdomain_make_subdomain(domain_id, data: CreateSubdomain):
         payment_hash=payment.payment_hash,
         wallet=domain.wallet,
         data=data,
-        domain_name=domain.domain,
+        domain=domain,
     )
 
     if not subdomain:

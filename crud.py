@@ -7,13 +7,15 @@ db = Database("ext_subdomains")
 
 
 async def create_subdomain(
-    payment_hash: str, wallet: str, data: CreateSubdomain, domain_name: str
+    payment_hash: str, wallet: str, data: CreateSubdomain, domain: Domain
 ) -> Subdomain:
     subdomain = Subdomain(
         id=payment_hash,
         wallet=wallet,
-        domain_name=domain_name,
-        **data.model_dump(),
+        # The resolved domain is authoritative; ignore the FK sent by the client.
+        domain=domain.id,
+        domain_name=domain.domain,
+        **data.model_dump(exclude={"domain"}),
     )
     await db.insert("subdomains.subdomain", subdomain)
     return subdomain
@@ -21,7 +23,8 @@ async def create_subdomain(
 
 async def set_subdomain_paid(payment_hash: str) -> Subdomain:
     subdomain = await get_subdomain(payment_hash)
-    assert subdomain, "Subdomain does not exist."
+    if not subdomain:
+        raise ValueError(f"Subdomain '{payment_hash}' does not exist.")
     if subdomain.paid is False:
         subdomain.paid = True
         await db.update("subdomains.subdomain", subdomain)

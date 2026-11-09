@@ -69,7 +69,7 @@ async def _paid_subdomain(domain_factory, subdomain_factory, wallet, webhook: st
         payment_hash=payment_hash,
         wallet=wallet.id,
         data=data,
-        domain_name=domain.domain,
+        domain=domain,
     )
     payment = Payment(
         checking_id=f"checking_{payment_hash}",
@@ -168,6 +168,58 @@ async def test_public_webhook_is_delivered_with_domain_name_and_no_body_read(
     subdomain = await get_subdomain(payment.payment_hash)
     assert subdomain is not None
     assert subdomain.paid is True
+
+
+@pytest.mark.asyncio
+async def test_invoice_listener_survives_a_failing_payment(
+    monkeypatch, wallet, domain_factory, subdomain_factory
+):
+    _mock_cloudflare(monkeypatch)
+    queues: list[asyncio.Queue] = []
+    monkeypatch.setattr(
+        subdomains_tasks,
+        "register_invoice_listener",
+        lambda queue, name=None: queues.append(queue),
+    )
+    listener = asyncio.create_task(subdomains_tasks.wait_for_paid_invoices())
+    try:
+        for _ in range(100):
+            if queues:
+                break
+            await asyncio.sleep(0)
+        assert queues, "listener did not register its queue"
+
+        # A payment without a subdomain row must not kill the listener.
+        orphan = Payment(
+            checking_id="checking_orphan",
+            payment_hash=uuid4().hex,
+            wallet_id=wallet.id,
+            amount=21_000,
+            fee=0,
+            bolt11="lnbc1fakepaymentrequest",
+            extra={"tag": "lnsubdomain"},
+        )
+        queues[0].put_nowait(orphan)
+
+        _, _, payment = await _paid_subdomain(
+            domain_factory, subdomain_factory, wallet, ""
+        )
+        queues[0].put_nowait(payment)
+
+        for _ in range(200):
+            settled = await get_subdomain(payment.payment_hash)
+            if settled and settled.paid:
+                break
+            await asyncio.sleep(0.01)
+
+        settled = await get_subdomain(payment.payment_hash)
+        assert settled is not None
+        assert settled.paid is True
+        assert not listener.done()
+    finally:
+        listener.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await listener
 
 
 @pytest.mark.asyncio

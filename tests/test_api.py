@@ -61,3 +61,27 @@ async def test_create_invoice_and_settle_subdomain_end_to_end(
     domain_after = await get_domain(domain.id)
     assert domain_after is not None
     assert domain_after.amountmade == 21
+
+
+@pytest.mark.asyncio
+async def test_forged_domain_in_request_body_is_rejected(
+    client, monkeypatch, wallet, domain_factory, subdomain_factory
+):
+    create_mock = AsyncMock(return_value={"result": {"id": "cf-record-id"}})
+    monkeypatch.setattr(
+        subdomains_views_api, "cloudflare_create_subdomain", create_mock
+    )
+    monkeypatch.setattr(subdomains_views_api, "cloudflare_deletesubdomain", AsyncMock())
+
+    domain = await domain_factory()
+    # Another merchant's domain: a body FK pointing here would make the paid
+    # task use that domain's Cloudflare token.
+    victim_domain = await domain_factory()
+
+    response = await client.post(
+        f"/subdomains/api/v1/subdomains/{domain.id}",
+        json=subdomain_factory(victim_domain.id).model_dump(),
+    )
+
+    assert response.status_code == 400, response.text
+    create_mock.assert_not_awaited()

@@ -2,6 +2,7 @@ import asyncio
 
 from lnbits.core.models import Payment
 from lnbits.helpers import get_current_extension_name
+from lnbits.settings import settings
 from lnbits.tasks import register_invoice_listener
 from lnbits.utils.safe_http import SafeHttpClient
 from loguru import logger
@@ -14,9 +15,15 @@ async def wait_for_paid_invoices():
     invoice_queue = asyncio.Queue()
     register_invoice_listener(invoice_queue, get_current_extension_name())
 
-    while True:
+    while settings.lnbits_running:
         payment = await invoice_queue.get()
-        await on_invoice_paid(payment)
+        try:
+            await on_invoice_paid(payment)
+        except Exception as exc:
+            # One bad payment must not kill the listener for all later payments.
+            logger.error(
+                f"failed to process subdomain payment {payment.payment_hash}: {exc}"
+            )
 
 
 async def on_invoice_paid(payment: Payment) -> None:

@@ -21,7 +21,7 @@ async def test_create_subdomain_persists_and_reads_joined_domain_name(
         payment_hash="pay_hash_1",
         wallet=wallet.id,
         data=data,
-        domain_name=domain.domain,
+        domain=domain,
     )
 
     assert subdomain.domain_name == domain.domain
@@ -37,6 +37,31 @@ async def test_create_subdomain_persists_and_reads_joined_domain_name(
 
 
 @pytest.mark.asyncio
+async def test_create_subdomain_ignores_forged_domain_from_request_body(
+    wallet, domain_factory, subdomain_factory
+):
+    domain = await domain_factory()
+    other_domain = await domain_factory()
+    # A hand-crafted payload can point the FK at a different domain; the
+    # resolved domain must win so the paid task cannot use another domain's
+    # Cloudflare credentials.
+    data = subdomain_factory(other_domain.id)
+
+    subdomain = await create_subdomain(
+        payment_hash="pay_hash_forged",
+        wallet=wallet.id,
+        data=data,
+        domain=domain,
+    )
+
+    assert subdomain.domain == domain.id
+    fetched = await get_subdomain("pay_hash_forged")
+    assert fetched is not None
+    assert fetched.domain == domain.id
+    assert fetched.domain_name == domain.domain
+
+
+@pytest.mark.asyncio
 async def test_set_subdomain_paid_is_idempotent(
     wallet, domain_factory, subdomain_factory
 ):
@@ -46,7 +71,7 @@ async def test_set_subdomain_paid_is_idempotent(
         payment_hash="pay_hash_2",
         wallet=wallet.id,
         data=data,
-        domain_name=domain.domain,
+        domain=domain,
     )
 
     settled = await set_subdomain_paid("pay_hash_2")
@@ -65,6 +90,12 @@ async def test_set_subdomain_paid_is_idempotent(
 
 
 @pytest.mark.asyncio
+async def test_set_subdomain_paid_rejects_unknown_subdomain():
+    with pytest.raises(ValueError, match="does not exist"):
+        await set_subdomain_paid("missing_payment_hash")
+
+
+@pytest.mark.asyncio
 async def test_renamed_domain_is_reflected_in_subdomain(
     wallet, domain_factory, subdomain_factory
 ):
@@ -73,7 +104,7 @@ async def test_renamed_domain_is_reflected_in_subdomain(
         payment_hash="pay_hash_3",
         wallet=wallet.id,
         data=subdomain_factory(domain.id),
-        domain_name=domain.domain,
+        domain=domain,
     )
 
     domain.domain = f"renamed-{domain.domain}"
